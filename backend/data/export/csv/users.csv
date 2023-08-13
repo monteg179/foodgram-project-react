@@ -1,0 +1,7 @@
+id,username,email,first_name,last_name
+101,user1,user1@email.fake,name1,name1
+102,user2,user2@email.fake,name2,name2
+103,user3,user3@email.fake,name3,name3
+104,user4,user4@email.fake,name4,name4
+105,user5,user5@email.fake,name5,name5
+106,admin2,admin2@email.fake,name,name
