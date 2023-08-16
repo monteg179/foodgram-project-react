@@ -124,7 +124,7 @@ jobs:
           tags: ${{env.GATEWAY_IMAGE}}:latest
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
     needs: 
       - backend_image
       - frontend_image
