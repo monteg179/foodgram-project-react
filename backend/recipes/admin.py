@@ -1,13 +1,14 @@
 from django.contrib import admin
+from django.utils.safestring import mark_safe, SafeText
 
 from recipes.models import (
+    Favorite,
     Ingredient,
-    Tag,
     Recipe,
     RecipeIngredient,
     RecipeTag,
-    Favorite,
     Shopping,
+    Tag,
 )
 
 
@@ -19,11 +20,34 @@ class TagAdmin(admin.ModelAdmin):
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'measurement_unit')
+    list_filter = ('name',)
+
+
+class RecipeTagInline(admin.TabularInline):
+    model = RecipeTag
+    extra = 0
+    min_num = 1
+
+
+class RecipeIngredientInline(admin.TabularInline):
+    model = RecipeIngredient
+    extra = 0
+    min_num = 1
 
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'author', 'image')
+    list_display = ('id', 'pub_date', 'name', 'cooking_time', 'author')
+    fields = ('author', 'name', 'text', 'cooking_time', 'image', 'pub_date',
+              'favorites_amount')
+    readonly_fields = ('pub_date', 'favorites_amount')
+    inlines = (RecipeTagInline, RecipeIngredientInline)
+    list_filter = ('name', 'author', 'tags')
+
+    def favorites_amount(self, recipe: Recipe) -> SafeText:
+        return mark_safe(recipe.favorite_recipe.count())
+
+    favorites_amount.short_description = 'Количество добавлений в избранное'
 
 
 @admin.register(RecipeIngredient)

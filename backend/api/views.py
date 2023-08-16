@@ -1,5 +1,5 @@
 import csv
-from typing import Any, Iterable, Mapping, Union
+from typing import Union
 
 from django.contrib.auth import get_user_model
 from django.db.models import Exists, OuterRef, Value, Sum
@@ -50,16 +50,6 @@ User = get_user_model()
 
 class FoodgramView(views.APIView):
 
-    def get_permissions(self):
-        if getattr(type(self), 'safety', None):
-            value = type(self).safety
-            if isinstance(value, Mapping):
-                value = value.get(self.request.method)
-            if not isinstance(value, Iterable):
-                value = (value,)
-            type(self).permission_classes = value
-        return super().get_permissions()
-
     def handle_exception(self, error: Exception) -> Response:
         if isinstance(error, exceptions.ValidationError):
             error_data = {'errors': str(error)}
@@ -93,7 +83,7 @@ class FoodgramPaginator(pagination.PageNumberPagination):
 class TokenCreateView(FoodgramView):
     """ api/auth/token/login """
 
-    safety = permissions.AllowAny
+    permission_classes = (permissions.AllowAny,)
 
     def post(self, request: Request) -> Response:
         serializer = TokenSerializer(data=request.data)
@@ -108,7 +98,7 @@ class TokenCreateView(FoodgramView):
 class TokenDestroyView(FoodgramView):
     """ api/auth/token/logout """
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request: Request) -> Response:
         request.auth.delete()
@@ -120,8 +110,7 @@ class UserBaseView(FoodgramModelView):
     def get_queryset(self) -> QuerySet:
         user = self.request.user
         if user.is_authenticated:
-            subquery = Subscription.objects.filter(
-                user=user,
+            subquery = user.subscription_source.filter(
                 author_id=OuterRef('id')
             )
             return User.objects.annotate(is_subscribed=Exists(subquery))
@@ -131,10 +120,10 @@ class UserBaseView(FoodgramModelView):
 class UserListView(UserBaseView):
     """ api/users/ """
 
-    safety = {
-        'GET': permissions.IsAdminUser,
-        'POST': permissions.AllowAny,
-    }
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return (permissions.IsAdminUser(),)
+        return (permissions.AllowAny(),)
 
     def get(self, request: Request) -> Response:
         paginator = FoodgramPaginator()
@@ -147,16 +136,15 @@ class UserListView(UserBaseView):
 
     def post(self, request: Request) -> Response:
         serializer = FoodgramUserSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class UserDetailView(UserBaseView):
     """ api/users/<int:pk>/ """
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request: Request, pk: int) -> Response:
         user = self.get_object()
@@ -167,7 +155,7 @@ class UserDetailView(UserBaseView):
 class UserMeView(UserBaseView):
     """ api/users/me/ """
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request: Request) -> Response:
         user = get_object_or_404(self.get_queryset(), id=request.user.id)
@@ -178,20 +166,16 @@ class UserMeView(UserBaseView):
 class UserPasswordView(FoodgramView):
     """ api/users/set_setpassword """
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request: Request) -> Response:
         context = {
             'user': request.user
         }
         serializer = PasswordSerializer(data=request.data, context=context)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(
-            data=serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SubscriptionBaseView(FoodgramModelView):
@@ -199,7 +183,7 @@ class SubscriptionBaseView(FoodgramModelView):
     def get_queryset(self) -> QuerySet:
         user = self.request.user
         subquery = User.objects.filter(id=OuterRef('user_id'))
-        return Subscription.objects.filter(user=user).annotate(
+        return user.subscription_source.annotate(
             is_subscribed=Exists(subquery)
         )
 
@@ -218,7 +202,7 @@ class SubscriptionBaseView(FoodgramModelView):
 class SubscribtionView(SubscriptionBaseView):
     """ api/users/subscription/ """
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request: Request) -> Response:
         context = {
@@ -240,7 +224,7 @@ class SubscribtionView(SubscriptionBaseView):
 class SubscribeView(SubscriptionBaseView):
     """ api/users/<int:pk>/subscribe/ """
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request: Request, pk: int) -> Response:
         author = get_object_or_404(User, id=pk)
@@ -270,7 +254,7 @@ class TagBaseView(FoodgramModelView):
 class TagListView(TagBaseView):
     """ api/tags/ """
 
-    safety = permissions.AllowAny
+    permission_classes = (permissions.AllowAny,)
 
     def get(self, request: Request) -> Response:
         queryset = self.filter_queryset()
@@ -281,7 +265,7 @@ class TagListView(TagBaseView):
 class TagDetailView(TagBaseView):
     """ api/tags/<int:pk>/ """
 
-    safety = permissions.AllowAny
+    permission_classes = (permissions.AllowAny,)
 
     def get(self, request: Request, pk: int) -> Response:
         tag = self.get_object()
@@ -298,7 +282,7 @@ class IngredientBaseView(FoodgramModelView):
 class IngredientListView(IngredientBaseView):
     """ api/ingredients/ """
 
-    safety = permissions.AllowAny
+    permission_classes = (permissions.AllowAny,)
 
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
@@ -312,7 +296,7 @@ class IngredientListView(IngredientBaseView):
 class IngredientDetailView(IngredientBaseView):
     """ api/ingredients/<int:pk>/ """
 
-    safety = permissions.AllowAny
+    permission_classes = (permissions.AllowAny,)
 
     def get(self, request: Request, pk: int) -> Response:
         ingredient = self.get_object()
@@ -346,7 +330,7 @@ class RecipeBaseView(FoodgramModelView):
 class RecipeListView(RecipeBaseView):
     """ api/recipes/ """
 
-    safety = permissions.IsAuthenticatedOrReadOnly
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     filter_backends = (django_filter.DjangoFilterBackend,)
     filterset_class = RecipeFilter
@@ -370,33 +354,27 @@ class RecipeListView(RecipeBaseView):
 class RecipeDetailView(RecipeBaseView):
     """ api/recipes/<int:pk>/ """
 
-    safety = AuthorOrReadOnly
+    permission_classes = (AuthorOrReadOnly,)
 
     def get(self, request: Request, pk: int) -> Response:
         recipe = self.get_object()
         serializer = RecipeReadSerializer(instance=recipe)
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
-    def put(self, request: Request, pk: int) -> Response:
-        return self.update(request.data)
-
     def patch(self, request: Request, pk: int) -> Response:
-        return self.update(request.data, True)
+        serializer = RecipeWriteSerializer(
+            instance=self.get_object(),
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     def delete(self, request: Request, pk: int) -> Response:
         recipe = self.get_object()
         recipe.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def update(self, data: dict[str, Any], partial: bool = False) -> Response:
-        serializer = RecipeWriteSerializer(
-            instance=self.get_object(),
-            data=data,
-            partial=partial
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
 
 class FavoriteBaseView(FoodgramModelView):
@@ -420,7 +398,7 @@ class FavoriteBaseView(FoodgramModelView):
 class FavoriteView(FavoriteBaseView):
     """ api/recipes/<int:pk>/favorite/ """
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request: Request, pk: int) -> Response:
         data = {
@@ -458,7 +436,7 @@ class ShoppingBaseView(FoodgramModelView):
 class ShoppingView(ShoppingBaseView):
     """ api/recipes/<int:pk>/shopping_cart/ """
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request: Request, pk: int) -> Response:
         data = {
@@ -491,7 +469,7 @@ class DownloadShoppingCartBaseView(FoodgramModelView):
 
 class DownloadShoppingCartView(DownloadShoppingCartBaseView):
 
-    safety = permissions.IsAuthenticated
+    permission_classes = (permissions.IsAuthenticated,)
 
     FILE_NAME = 'shopping_cart.csv'
 

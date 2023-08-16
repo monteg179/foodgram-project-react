@@ -15,25 +15,24 @@ from core.utils import (
 
 User = get_user_model()
 
-NAME_MAX_LENGTH: Final[int] = 200
-
 
 class Tag(models.Model, FoodgramModelMixin):
+
+    NAME_MAX_LENGTH: Final[int] = 200
+    MAX_COLOR: Final[int] = 0xFFFFFF
 
     name = models.CharField(
         verbose_name='Название',
         max_length=NAME_MAX_LENGTH,
         unique=True,
-        blank=False,
-        null=False
     )
 
-    color = models.IntegerField(
-        verbose_name='Цвет в HEX',
-        validators=(MinValueValidator(0), MaxValueValidator(0xFFFFFF)),
+    color = models.PositiveIntegerField(
+        verbose_name='Цвет',
+        validators=(
+            MaxValueValidator(MAX_COLOR),
+        ),
         unique=True,
-        blank=False,
-        null=False
     )
 
     slug = models.SlugField(
@@ -68,19 +67,18 @@ class Tag(models.Model, FoodgramModelMixin):
 
 class Ingredient(models.Model, FoodgramModelMixin):
 
+    NAME_MAX_LENGTH: Final[int] = 200
+    MEASUREMENT_UNIT_MAX_LENGTH: Final[int] = 200
+
     name = models.CharField(
         verbose_name='Название',
         max_length=NAME_MAX_LENGTH,
         db_index=True,
-        blank=False,
-        null=False
     )
 
     measurement_unit = models.CharField(
         verbose_name='Единица измерения',
-        max_length=200,
-        blank=False,
-        null=False
+        max_length=MEASUREMENT_UNIT_MAX_LENGTH,
     )
 
     class Meta:
@@ -110,11 +108,13 @@ class Ingredient(models.Model, FoodgramModelMixin):
 
 class Recipe(models.Model, FoodgramModelMixin):
 
+    NAME_MAX_LENGTH: Final[int] = 200
+    MIN_COOCKING_TIME: Final[int] = 1
+    MAX_COOCKING_TIME: Final[int] = 32_000
+
     name = models.CharField(
         verbose_name='Название',
         max_length=NAME_MAX_LENGTH,
-        blank=False,
-        null=False
     )
 
     text = models.TextField(
@@ -132,9 +132,10 @@ class Recipe(models.Model, FoodgramModelMixin):
 
     cooking_time = models.IntegerField(
         verbose_name='Время приготовления (в минутах)',
-        validators=(MinValueValidator(1), ),
-        blank=False,
-        null=False
+        validators=(
+            MinValueValidator(MIN_COOCKING_TIME),
+            MaxValueValidator(MAX_COOCKING_TIME),
+        )
     )
 
     pub_date = models.DateTimeField(
@@ -200,12 +201,14 @@ class Recipe(models.Model, FoodgramModelMixin):
 class RecipeTag(models.Model, FoodgramModelMixin):
 
     recipe = models.ForeignKey(
+        verbose_name='Рецепт',
         to=Recipe,
         on_delete=models.CASCADE,
         related_name='recipe_tag'
     )
 
     tag = models.ForeignKey(
+        verbose_name='Тэг',
         to=Tag,
         on_delete=models.CASCADE,
         related_name='recipe_tag'
@@ -213,7 +216,7 @@ class RecipeTag(models.Model, FoodgramModelMixin):
 
     class Meta:
         verbose_name = 'Тэг рецепта'
-        verbose_name_plural = 'Тэти рецептов'
+        verbose_name_plural = 'Тэти рецепта'
         constraints = [
             models.UniqueConstraint(
                 fields=('recipe', 'tag'),
@@ -244,6 +247,9 @@ class RecipeTag(models.Model, FoodgramModelMixin):
 
 class RecipeIngredient(models.Model, FoodgramModelMixin):
 
+    MIN_AMOUNT: Final[int] = 1
+    MAX_AMOUNT: Final[int] = 32_000
+
     recipe = models.ForeignKey(
         verbose_name='Рецепт',
         to=Recipe,
@@ -260,12 +266,15 @@ class RecipeIngredient(models.Model, FoodgramModelMixin):
 
     amount = models.IntegerField(
         verbose_name='Количество',
-        validators=(MinValueValidator(1),)
+        validators=(
+            MinValueValidator(MIN_AMOUNT),
+            MaxValueValidator(MAX_AMOUNT),
+        )
     )
 
     class Meta:
         verbose_name = 'Ингредиент рецепта'
-        verbose_name_plural = 'Ингредиенты рецептов'
+        verbose_name_plural = 'Ингредиенты рецепта'
         constraints = [
             models.UniqueConstraint(
                 fields=('recipe', 'ingredient'),
@@ -322,6 +331,9 @@ class UserRecipe(models.Model, FoodgramModelMixin):
 
     def __str__(self) -> str:
         return f'{self.user} <-> {self.recipe}'
+
+    def favorites_amount(self) -> int:
+        return self.favorite_recipe.count()
 
     @classmethod
     def import_data(cls, data: dict[str, Any]) -> 'UserRecipe':

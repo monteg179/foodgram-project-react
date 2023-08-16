@@ -1,9 +1,9 @@
-from typing import Any
-from django.contrib.auth.hashers import make_password
+from typing import Any, Final
+# from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
-    PermissionsMixin
+    PermissionsMixin,
 )
 
 from django.core.mail import send_mail
@@ -34,27 +34,25 @@ class FoodgramUserManager(BaseUserManager):
             last_name=last_name,
             **other
         )
-        user.password = make_password(password)
+        user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_user(self, username, email=None, password=None,
-                    first_name=None, last_name=None, **other):
+    def create_user(self, username, email, password,
+                    first_name, last_name, **other):
         other.setdefault('is_staff', False)
         other.setdefault('is_superuser', False)
         return self._create_user(
             username, email, password, first_name, last_name, **other)
 
-    def create_superuser(self, username, email=None, password=None,
-                         first_name=None, last_name=None, **other):
+    def create_superuser(self, username, email, password,
+                         first_name, last_name, **other):
         other.setdefault('is_staff', True)
         other.setdefault('is_superuser', True)
-
         if other.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
         if other.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
-
         return self._create_user(
             username, email, password, first_name, last_name, **other)
 
@@ -63,9 +61,13 @@ class FoodgramUser(AbstractBaseUser,
                    PermissionsMixin,
                    FoodgramModelMixin):
 
+    USERNAME_MAX_LENGTH: Final[int] = 150
+    FIRST_NAME_MAX_LENGTH: Final[int] = 150
+    LAST_NAME_MAX_LENGTH: Final[int] = 150
+
     username = models.CharField(
         verbose_name='Username',
-        max_length=150,
+        max_length=USERNAME_MAX_LENGTH,
         unique=True
     )
 
@@ -76,12 +78,12 @@ class FoodgramUser(AbstractBaseUser,
 
     first_name = models.CharField(
         verbose_name='First name',
-        max_length=150
+        max_length=FIRST_NAME_MAX_LENGTH
     )
 
     last_name = models.CharField(
         verbose_name='Last name',
-        max_length=150
+        max_length=LAST_NAME_MAX_LENGTH
     )
 
     is_staff = models.BooleanField(
@@ -114,8 +116,8 @@ class FoodgramUser(AbstractBaseUser,
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
 
     class Meta:
-        verbose_name = 'User'
-        verbose_name_plural = 'Users'
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
         ordering = ('id',)
 
     def clean(self):
@@ -164,20 +166,22 @@ class FoodgramUser(AbstractBaseUser,
 class Subscription(models.Model, FoodgramModelMixin):
 
     user = models.ForeignKey(
+        verbose_name='Пользователь',
         to=FoodgramUser,
         on_delete=models.CASCADE,
         related_name='subscription_source'
     )
 
     author = models.ForeignKey(
+        verbose_name='Автор',
         to=FoodgramUser,
         on_delete=models.CASCADE,
         related_name='subscription_target'
     )
 
     class Meta:
-        verbose_name = 'Subscription'
-        verbose_name_plural = 'Subscriptions'
+        verbose_name = 'Подписка пользователя'
+        verbose_name_plural = 'Подписки пользователей'
         constraints = [
             models.UniqueConstraint(
                 fields=('user', 'author'),

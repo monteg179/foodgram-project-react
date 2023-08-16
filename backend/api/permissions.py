@@ -14,4 +14,4 @@ class AuthorOrReadOnly(permissions.BasePermission):
                               obj: Model) -> bool:
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user.is_moderator or obj.author.id == request.user.id
+        return obj.author.id == request.user.id

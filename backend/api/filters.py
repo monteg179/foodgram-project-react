@@ -1,7 +1,7 @@
 from django_filters import rest_framework as django_filter
 from django.db.models.query import QuerySet
 
-from recipes.models import Recipe
+from recipes.models import Recipe, Tag
 
 BOOLEAN_ENUM = ((0, 'false'), (1, 'true'))
 
@@ -16,8 +16,9 @@ class RecipeFilter(django_filter.FilterSet):
         choices=BOOLEAN_ENUM,
         method='filter_shopping'
     )
-    tags = django_filter.CharFilter(
-        field_name='tags__slug'
+    tags = django_filter.MultipleChoiceFilter(
+        field_name='tags__slug',
+        choices=Tag.objects.values_list('slug', 'slug'),
     )
 
     class Meta:

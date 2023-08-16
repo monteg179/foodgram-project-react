@@ -1,5 +1,5 @@
 import re
-from typing import Any, Union
+from typing import Any, Final, Union
 from collections import OrderedDict
 
 from django.contrib.auth import get_user_model
@@ -78,6 +78,10 @@ class FoodgramUserSerializer(serializers.ModelSerializer):
             'password': {'write_only': True}
         }
 
+    def create(self, data: dict[str, Any]) -> Recipe:
+        user = User.objects.create_user(**data)
+        return user
+
     def get_subscribed(self, user: User) -> bool:
         if hasattr(user, 'is_subscribed'):
             return user.is_subscribed
@@ -89,8 +93,8 @@ class TagColorField(serializers.Field):
     default_error_messages = {
         'invalid': 'Invalid format.',
     }
-
     FORMAT = r'^#(?:[0-9a-f]{3}){1,2}$'
+    HEX_BASE: Final[int] = 16
 
     def to_representation(self, value: int) -> str:
         return f'#{value:06X}'
@@ -98,7 +102,7 @@ class TagColorField(serializers.Field):
     def to_internal_value(self, value: str) -> int:
         if not re.match(type(self).FORMAT, value.lower()):
             self.fail('invalid')
-        return int(value[1:], 16)
+        return int(value[1:], type(self).HEX_BASE)
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -187,21 +191,25 @@ class RecipeImageField(serializers.ImageField):
 class RecipeIngredientWriteSerializer(serializers.Serializer):
 
     id = serializers.IntegerField()
-    amount = serializers.IntegerField()
+    amount = serializers.IntegerField(
+        max_value=RecipeIngredient.MAX_AMOUNT,
+        min_value=RecipeIngredient.MIN_AMOUNT
+    )
 
     def validate_id(self, value: int) -> Ingredient:
         if not Ingredient.objects.filter(id=value).exists():
-            raise serializers.ValidationError('Ingredient not exist')
-        return value
-
-    def validate_amount(self, value: int) -> int:
-        if (value < 1):
-            serializers.ValidationError('Incorrect value')
+            raise serializers.ValidationError(
+                f'Ingredient <id={value}> not exist'
+            )
         return value
 
 
 class RecipeWriteSerializer(serializers.ModelSerializer):
 
+    cooking_time = serializers.IntegerField(
+        min_value=Recipe.MIN_COOCKING_TIME,
+        max_value=Recipe.MAX_COOCKING_TIME
+    )
     image = RecipeImageField()
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(),
@@ -233,8 +241,9 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             recipe.tags.set(tags_data)
         ingredients_data = data.get('ingredients')
         if ingredients_data:
-            recipe.ingredients.delete()
-            self.create_ingredients(recipe.id, data)
+            recipe.recipe_ingredient.all().delete()
+            # RecipeIngredient.objects.filter(recipe=recipe).delete()
+            self.create_ingredients(recipe.id, ingredients_data)
         recipe.save()
         return recipe
 

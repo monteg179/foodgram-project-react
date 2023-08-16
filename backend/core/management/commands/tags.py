@@ -7,14 +7,14 @@ from django.core.management.base import (
     CommandError,
 )
 
-from recipes.models import Ingredient
+from recipes.models import Tag
 
 
 class Command(BaseCommand):
 
-    help = 'Import ingredients data from files'
+    help = 'Import tags data from files'
 
-    INGREDIENT_FILE = 'ingredients'
+    INGREDIENT_FILE = 'tags'
 
     CSV_FORMAT = '.csv'
     JSON_FORMAT = '.json'
@@ -45,14 +45,14 @@ class Command(BaseCommand):
     def load_from_csv(self, file_name) -> None:
         with open(file_name) as file:
             reader = csv.reader(file)
-            ingredients = []
+            tags = []
             for row in reader:
-                ingredient = Ingredient(name=row[0], measurement_unit=row[1])
-                ingredients.append(ingredient)
-            Ingredient.objects.bulk_create(ingredients)
+                tag = Tag(name=row[0], color=row[1], slug=row[2])
+                tags.append(tag)
+            Tag.objects.bulk_create(tags)
 
     def load_from_json(self, file_name) -> None:
         with open(file_name) as file:
             data = json.load(file)
-        ingredients = [Ingredient(**item) for item in data]
-        Ingredient.objects.bulk_create(ingredients)
+        tags = [Tag(**item) for item in data]
+        Tag.objects.bulk_create(tags)

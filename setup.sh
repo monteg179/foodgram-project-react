@@ -112,20 +112,9 @@ docker_compose_init() {
 	    echo " error($error)"
         return $error
     fi
-    # echo -n "[backend] service: import ingredients ..."
-    # docker compose exec backend \
-    #     python manage.py ingredients data/ingredients.csv 1> $OUT 2>$ERR
-    # error=$?
-    # if [ $error -eq 0 ]; then
-	#     echo " completed"
-    # else
-	#     echo " error($error)"
-    #     return $error
-    # fi
-    
-    echo -n "[backend] service: import database ..."
+    echo -n "[backend] service: import ingredients ..."
     docker compose exec backend \
-        python manage.py importdb --format csv --path data/import/csv 1> $OUT 2>$ERR
+        python manage.py ingredients data/ingredients.csv 1> $OUT 2>$ERR
     error=$?
     if [ $error -eq 0 ]; then
 	    echo " completed"
@@ -133,7 +122,26 @@ docker_compose_init() {
 	    echo " error($error)"
         return $error
     fi
-
+    echo -n "[backend] service: import tags ..."
+    docker compose exec backend \
+        python manage.py tags data/tags.csv 1> $OUT 2>$ERR
+    error=$?
+    if [ $error -eq 0 ]; then
+	    echo " completed"
+    else
+	    echo " error($error)"
+        return $error
+    fi    
+    # echo -n "[backend] service: import database ..."
+    # docker compose exec backend \
+    #     python manage.py importdb --format csv --path data/import/csv 1> $OUT 2>$ERR
+    # error=$?
+    # if [ $error -eq 0 ]; then
+	#     echo " completed"
+    # else
+	#     echo " error($error)"
+    #     return $error
+    # fi
     echo -n "[backend] service: django collectstatic ..."
     docker compose exec backend \
         python manage.py collectstatic 1> $OUT 2>$ERR
