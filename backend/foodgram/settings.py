@@ -118,6 +118,6 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'collected_static'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.getenv('DJANGO_MEDIA_ROOT', f'{BASE_DIR}/media')
+MEDIA_ROOT = '/mediafiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
