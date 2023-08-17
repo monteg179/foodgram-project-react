@@ -223,6 +223,17 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                   'ingredients')
         read_only_fields = ('id',)
 
+    def validate_ingredients(
+            self, ingredients: list[OrderedDict]) -> list[OrderedDict]:
+        if len(ingredients) < 2:
+            return ingredients
+        for i in range(len(ingredients) - 1):
+            id = ingredients[i]['id']
+            for j in range(i + 1, len(ingredients)):
+                if ingredients[j]['id'] == id:
+                    raise serializers.ValidationError('Incorrect value.')
+        return ingredients
+
     def create(self, data: dict[str, Any]) -> Recipe:
         tags_data = data.pop('tags')
         ingredients_data = data.pop('ingredients')
@@ -242,7 +253,6 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         ingredients_data = data.get('ingredients')
         if ingredients_data:
             recipe.recipe_ingredient.all().delete()
-            # RecipeIngredient.objects.filter(recipe=recipe).delete()
             self.create_ingredients(recipe.id, ingredients_data)
         recipe.save()
         return recipe
