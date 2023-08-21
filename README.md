@@ -137,12 +137,3 @@ Authorization: Token <token>
 ## АВТОРЫ
 * Сергей Кузнецов - monteg179@yandex.ru
 
-## ДОСТУП
-
-### СЕРВЕР
-monteg179.chickenkiller.com
-
-### АДМИНКА
-| username | пароль |
-|:---|:---|
-| `admin1` | `vjyntu` |
